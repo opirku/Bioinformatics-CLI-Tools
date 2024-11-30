@@ -1,3 +1,12 @@
+//*
+Author: Orion Pirku
+Date: _30_11_2024
+
+This is a simple program that is used to identify reverse palindromic which
+could act as restriction enzyme cut sites. 
+The program was written in an attempt to solve the ROSALIND String Algorithm Problem: Locating Restriction Sites
+*//
+
 #include <iostream>
 #include <machine/limits.h>
 #include <string>
@@ -80,7 +89,7 @@ public:
 int main(int argc, char* argv[]){
         
         if (argc < 2) {
-                std::cerr << "Usage: " << argv[0] << "<fasta file>" << std::endl;
+                std::cerr << "Usage: " << argv[0] << "\t" << "<fasta file>" << std::endl;
                 return 1;
         }
         
@@ -94,5 +103,6 @@ int main(int argc, char* argv[]){
         palindromeFinder.findReversePalindromes(header, sequence);
     }
 
-    return 0;}
+    return 0;
+}
 
