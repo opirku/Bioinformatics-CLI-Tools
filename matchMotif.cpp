@@ -73,7 +73,7 @@ void KMP(const std::string& dnaSeq, const std::string& dnaMotif) {
 int main(int argc, char* argv[]) {
 
         if (argc < 3) {
-        std::cerr << "Usage: " << argv[0] << " <text> <pattern>" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <dna_sequence> <dna_motif>" << std::endl;
         return 1;
     }
         std::string dnaSeq = argv[1];
