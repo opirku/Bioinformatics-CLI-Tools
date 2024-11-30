@@ -4,13 +4,13 @@
 
 // Utilization of the Knuth-Morris-Pratt Algorithm to identify the positions of a DNA motif in a DNA sequence
 
-
-void computeLPS(const std::string& dnaMotif, std::vector<int>& lps) {    
-       
+// Function to compute longest proper prefix suffix array lps aka failure function
+void computeLPS(const std::string& dnaMotif, std::vector<int>& lps) {          
         int m = dnaMotif.length();
         lps[0]=0;
         int j = 0;
-
+       
+       // transverse the dnaMotif character by character               
         for (int i = 1; i < m; ++i) { 
                 while (j > 0 && dnaMotif[i] != dnaMotif[j]) {
                         j=lps[j-1];
