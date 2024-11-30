@@ -1,3 +1,11 @@
+//*
+Author: Orion Pirku
+Date: _30_11_2024
+
+This is a simple program that is used to identify motifs in DNA sequences by using the Knuth-Morris-Pratt Algorithm
+The program was written in an attempt to solve the ROSALIND String Algorithms Problem: Finding a motif in DNA
+*//
+
 #include <iostream>
 #include <vector>
 #include <string>
