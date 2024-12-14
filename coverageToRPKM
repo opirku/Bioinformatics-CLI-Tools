@@ -1,0 +1,69 @@
+//
+// Created by orion pirku on 14.12.24.
+// This program converts coverage scores to RPKM
+//
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <string>
+
+class Interval {
+  public:
+    std::string chromosome;
+    int start;
+    int end;
+    int coverage;
+    Interval(std::string chromosome, int start, int end, int coverage) : chromosome(chromosome), start(start), end(end),
+                                                                         coverage(coverage) {}
+    int length() const { return 100; }
+};
+
+class BedProcessor {
+  private:
+    std::vector<Interval> intervals;
+    long long totalReads;
+    double computeRPKM(const Interval& interval) const {
+    return (static_cast<double>(interval.coverage) * 1e9) / (interval.length() * totalReads);
+  }
+    public:
+      BedProcessor() : totalReads(0) {}
+      void readBed(const std::string& inputFile) {
+        std::ifstream infile(inputFile);
+        if (!infile.is_open()) {
+          throw std::ios_base::failure("Error opening input file");
+        }
+        std::string line;
+        while (std::getline(infile, line)) {
+          std::istringstream iss(line);
+          std::string chromosome;
+          int start;
+          int end;
+          int coverage;
+          iss >> chromosome >> start >> end >> coverage;
+          intervals.push_back(Interval(chromosome, start, end, coverage));
+          totalReads+=coverage;
+        }
+        infile.close();
+      }
+      void writeFile(const std::string& outputFile) {
+        std::ofstream outfile(outputFile);
+        if (!outfile.is_open()) {
+          throw std::ios_base::failure("Error opening output file");
+        }
+        for (const auto& interval : intervals) {
+          double RPKM = computeRPKM(interval);
+          outfile << interval.chromosome << "\t" << interval.start << "\t" << interval.end << "\t" << RPKM << std::endl;
+        }
+      }
+};
+int main (int argc, char* argv[]) {
+  if (argc != 2) {
+    std::cerr << "Usage: coverageToRPKM <inputFile> BED Format" << std::endl;
+  }
+  BedProcessor bedProcessor;
+  bedProcessor.readBed(argv[1]);
+  bedProcessor.writeFile("coverageToRPKM.bed");
+  std::cout << "RPKM conversion complete!" << std::endl;
+  return 0;
+}
