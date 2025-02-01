@@ -19,19 +19,27 @@ func readFastaFile(filename string) (string, error) {
 	}
 	defer file.Close()
 
-	var dnaSequence string
+	var dnaSequence strings.Builder
 	scanner := bufio.NewScanner(file)
+	firstSequence := true
+
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.HasPrefix(line, ">") { // Skip header lines
+		if strings.HasPrefix(line, ">") {
+			// If this is not the first sequence, insert a delimiter before starting the next sequence.
+			if !firstSequence {
+				dnaSequence.WriteString("$")
+			}
+			firstSequence = false
 			continue
 		}
-		dnaSequence += strings.ReplaceAll(line, "\n", "")
+		// Append the sequence part (remove newlines and spaces)
+		dnaSequence.WriteString(strings.TrimSpace(line))
 	}
 	if err := scanner.Err(); err != nil {
 		return "", err
 	}
-	return dnaSequence, nil
+	return dnaSequence.String(), nil
 }
 
 // encodeDNASequence is kept for your original approach.
