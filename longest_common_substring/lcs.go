@@ -5,11 +5,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
 const NUCLEOTIDES = 5
 
+// readFastaFile reads the FASTA file and concatenates all non-header lines.
 func readFastaFile(filename string) (string, error) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -19,30 +21,26 @@ func readFastaFile(filename string) (string, error) {
 
 	var dnaSequence string
 	scanner := bufio.NewScanner(file)
-	isFirstLine := true
 	for scanner.Scan() {
 		line := scanner.Text()
-		if isFirstLine && strings.HasPrefix(line, ">") {
-			isFirstLine = false
-			continue // Skip header line
+		if strings.HasPrefix(line, ">") { // Skip header lines
+			continue
 		}
-		// Remove any spaces or newlines and add to dnaSequence
 		dnaSequence += strings.ReplaceAll(line, "\n", "")
 	}
-
 	if err := scanner.Err(); err != nil {
 		return "", err
 	}
-
 	return dnaSequence, nil
 }
 
+// encodeDNASequence is kept for your original approach.
+// (Not used in the naïve suffix array construction below.)
 func encodeDNASequence(dnaSequence string, suffixes []int) {
 	n := len(dnaSequence)
 	if len(suffixes) < n {
 		panic("suffixes slice is too small")
 	}
-
 	for i := 0; i < n; i++ {
 		switch dnaSequence[i] {
 		case 'A':
@@ -62,114 +60,37 @@ func encodeDNASequence(dnaSequence string, suffixes []int) {
 	}
 }
 
-func computeBuckets(suffixes []int, n int, bucketStart, bucketEnd []int) {
-	bucketSize := make([]int, NUCLEOTIDES)
-
-	for i := 0; i < n; i++ {
-		bucketSize[suffixes[i]]++
-	}
-
-	bucketStart[0] = 0
-	bucketEnd[0] = bucketSize[0] - 1
-	for i := 1; i < NUCLEOTIDES; i++ {
-		bucketStart[i] = bucketStart[i-1] + bucketSize[i-1]
-		bucketEnd[i] = bucketStart[i] + bucketSize[i] - 1
-	}
-}
-
-func classifySuffixesLorS(suffixes []int, n int, suffixTypes []int) {
-	suffixTypes[n-1] = 0
-
-	for i := n - 2; i >= 0; i-- {
-		if suffixes[i] > suffixes[i+1] || (suffixes[i] == suffixes[i+1] && suffixTypes[i+1] == 0) {
-			suffixTypes[i] = 0 // S type
-		} else {
-			suffixTypes[i] = 1 // L type
-		}
-	}
-}
-
-func findLMSSuffixes(suffixes []int, n int, suffixTypes []int) []int {
-	var lms []int
-	for i := 1; i < n; i++ {
-		if suffixTypes[i] == 0 && suffixTypes[i-1] == 1 {
-			lms = append(lms, i)
-		}
-	}
-	return lms
-}
-
-func induceSort(sa, suffixes, suffixTypes, bucketStartOrig, bucketEndOrig []int, n int) {
-	bucketStart := append([]int(nil), bucketStartOrig...)
-	bucketEnd := append([]int(nil), bucketEndOrig...)
-
-	for i := 0; i < n; i++ {
-		sa[i] = -1
-	}
-
-	for i := len(sa) - 1; i >= 0; i-- {
-		if sa[i] >= 0 {
-			ch := suffixes[sa[i]]
-			sa[bucketEnd[ch]] = sa[i]
-			bucketEnd[ch]--
-		}
-	}
-
-	for i := 0; i < n; i++ {
-		if sa[i] > 0 && suffixTypes[sa[i]-1] == 1 {
-			ch := suffixes[sa[i]-1]
-			sa[bucketStart[ch]] = sa[i] - 1
-			bucketStart[ch]++
-		}
-	}
-
-	for i := n - 1; i >= 0; i-- {
-		if sa[i] > 0 && suffixTypes[sa[i]-1] == 0 {
-			ch := suffixes[sa[i]-1]
-			sa[bucketEnd[ch]] = sa[i] - 1
-			bucketEnd[ch]--
-		}
-	}
-}
-
-func buildSuffixArray(dnaSequence string) []int {
+// buildSuffixArrayNaive builds a suffix array by simply sorting all suffixes.
+func buildSuffixArrayNaive(dnaSequence string) []int {
 	n := len(dnaSequence)
-	suffixes := make([]int, n)
-	encodeDNASequence(dnaSequence, suffixes)
-
 	sa := make([]int, n)
-	bucketStart := make([]int, NUCLEOTIDES)
-	bucketEnd := make([]int, NUCLEOTIDES)
-	suffixTypes := make([]int, n)
-	computeBuckets(suffixes, n, bucketStart, bucketEnd)
-	classifySuffixesLorS(suffixes, n, suffixTypes)
-	lms := findLMSSuffixes(suffixes, n, suffixTypes)
-	_ = lms // Avoid unused variable warning
-	induceSort(sa, suffixes, suffixTypes, bucketStart, bucketEnd, n)
-
+	for i := 0; i < n; i++ {
+		sa[i] = i
+	}
+	sort.Slice(sa, func(i, j int) bool {
+		return dnaSequence[sa[i]:] < dnaSequence[sa[j]:]
+	})
 	return sa
 }
 
+// computeLCP computes the LCP array using Kasai's algorithm.
 func computeLCP(suffixArray []int, dnaSequence string) []int {
 	n := len(suffixArray)
 	lcp := make([]int, n-1)
 	rank := make([]int, n)
-
 	for i, suffix := range suffixArray {
 		rank[suffix] = i
 	}
 
 	lcpLength := 0
-
+	// Loop through every index of the original string.
 	for i := 0; i < n; i++ {
 		if rank[i] > 0 {
 			j := suffixArray[rank[i]-1]
-
 			for i+lcpLength < n && j+lcpLength < n && dnaSequence[i+lcpLength] == dnaSequence[j+lcpLength] {
 				lcpLength++
 			}
 			lcp[rank[i]-1] = lcpLength
-
 			if lcpLength > 0 {
 				lcpLength--
 			}
@@ -178,46 +99,56 @@ func computeLCP(suffixArray []int, dnaSequence string) []int {
 	return lcp
 }
 
+// findLCS returns a slice containing all longest common substrings (LCS)
+// found from the LCP array. If there is no common substring (max LCP 0), it returns an empty slice.
 func findLCS(dnaSequence string, suffixArray []int) []string {
 	lcp := computeLCP(suffixArray, dnaSequence)
-
 	maxLCP := 0
 	var lcsList []string
 	for i, l := range lcp {
 		if l > maxLCP {
 			maxLCP = l
+			// Start a new list of LCS.
 			lcsList = []string{dnaSequence[suffixArray[i] : suffixArray[i]+maxLCP]}
-		} else if l == maxLCP {
+		} else if l == maxLCP && maxLCP > 0 {
+			// Append this LCS if it is of the maximum length.
 			lcsList = append(lcsList, dnaSequence[suffixArray[i]:suffixArray[i]+maxLCP])
 		}
 	}
-
-	return lcsList
+	// Optional: Deduplicate the list if the same substring appears multiple times.
+	unique := make(map[string]bool)
+	var deduped []string
+	for _, s := range lcsList {
+		if !unique[s] {
+			unique[s] = true
+			deduped = append(deduped, s)
+		}
+	}
+	return deduped
 }
 
 func main() {
-	// Define the FASTA file flag
+	// Define the FASTA file flag.
 	fastaFile := flag.String("fasta", "", "Path to the FASTA file containing the DNA sequence")
 	flag.Parse()
 
-	// Ensure the FASTA file flag is provided
+	// Ensure the FASTA file flag is provided.
 	if *fastaFile == "" {
 		fmt.Println("Please provide the path to a FASTA file using the -fasta flag.")
 		return
 	}
 
-	// Read DNA sequence from the FASTA file
+	// Read the DNA sequence from the FASTA file.
 	dna, err := readFastaFile(*fastaFile)
 	if err != nil {
 		fmt.Printf("Error reading FASTA file: %v\n", err)
 		return
 	}
 
-	// Build Suffix Array and compute LCP
-	sa := buildSuffixArray(dna)
-	fmt.Println("Suffix Array:", sa)
+	// Build the suffix array using the naive method.
+	sa := buildSuffixArrayNaive(dna)
 
-	// Find LCS sequences
+	// Find all longest common substrings.
 	lcs := findLCS(dna, sa)
 	fmt.Println("Longest Common Substrings:")
 	for _, seq := range lcs {
